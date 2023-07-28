@@ -1,23 +1,21 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-from polyline.codec import PolylineCodec
-from polyline import encode as polyline_encode
 from pandas import DataFrame
+from polyline import encode as polyline_encode
+from polyline.codec import PolylineCodec
+
 from . import RequestConfig
 
 try:
-    from urllib.request import urlopen, Request
     from urllib.parse import quote
+    from urllib.request import Request, urlopen
 except:
     from urllib2 import urlopen, Request
     from urllib2 import quote
 
-try:
-    from osgeo.ogr import Geometry
-except:
-    from ogr import Geometry
-
 import json
+
+from osgeo.ogr import Geometry
 
 
 def _chain(*lists):
@@ -27,20 +25,30 @@ def _chain(*lists):
 
 
 def check_host(host):
-    """ Helper function to get the hostname in desired format """
-    if not ('http' in host and '//' in host) and host[len(host)-1] == '/':
-        return ''.join(['http://', host[:len(host)-1]])
-    elif not ('http' in host and '//' in host):
-        return ''.join(['http://', host])
-    elif host[len(host)-1] == '/':
-        return host[:len(host)-1]
+    """Helper function to get the hostname in desired format"""
+    if not ("http" in host and "//" in host) and host[len(host) - 1] == "/":
+        return "".join(["http://", host[: len(host) - 1]])
+    elif not ("http" in host and "//" in host):
+        return "".join(["http://", host])
+    elif host[len(host) - 1] == "/":
+        return host[: len(host) - 1]
     else:
         return host
 
 
-def match(points, steps=False, overview="simplified", geometry="polyline",
-          timestamps=None, radius=None, annotations="false", gaps="split",
-          tidy=False, waypoints=None, url_config=RequestConfig):
+def match(
+    points,
+    steps=False,
+    overview="simplified",
+    geometry="polyline",
+    timestamps=None,
+    radius=None,
+    annotations="false",
+    gaps="split",
+    tidy=False,
+    waypoints=None,
+    url_config=RequestConfig,
+):
     """
     Function wrapping OSRM 'match' function, returning the reponse in JSON
 
@@ -74,11 +82,16 @@ def match(points, steps=False, overview="simplified", geometry="polyline",
     host = check_host(url_config.host)
 
     url = [
-        host, '/match/', url_config.version, '/', url_config.profile, '/',
-        ';'.join(
-            [','.join([str(coord[0]), str(coord[1])]) for coord in points]),
-        "?overview={}&steps={}&geometries={}&annotations={}&gaps={}&tidy={}"
-           .format(overview, str(steps).lower(), geometry, annotations, gaps, str(tidy).lower())
+        host,
+        "/match/",
+        url_config.version,
+        "/",
+        url_config.profile,
+        "/",
+        ";".join([",".join([str(coord[0]), str(coord[1])]) for coord in points]),
+        "?overview={}&steps={}&geometries={}&annotations={}&gaps={}&tidy={}".format(
+            overview, str(steps).lower(), geometry, annotations, gaps, str(tidy).lower()
+        ),
     ]
 
     if radius:
@@ -95,17 +108,18 @@ def match(points, steps=False, overview="simplified", geometry="polyline",
     if url_config.auth:
         req.add_header("Authorization", url_config.auth)
     r = urlopen(req)
-    r_json = json.loads(r.read().decode('utf-8'))
+    r_json = json.loads(r.read().decode("utf-8"))
     if "code" not in r_json or "Ok" not in r_json["code"]:
-        if 'matchings' in r_json.keys():
-            for i, _ in enumerate(r_json['matchings']):
+        if "matchings" in r_json.keys():
+            for i, _ in enumerate(r_json["matchings"]):
                 geom_encoded = r_json["matchings"][i]["geometry"]
-                geom_decoded = [[point[1] / 10.0,
-                                 point[0] / 10.0] for point
-                                in PolylineCodec().decode(geom_encoded)]
+                geom_decoded = [
+                    [point[1] / 10.0, point[0] / 10.0]
+                    for point in PolylineCodec().decode(geom_encoded)
+                ]
                 r_json["matchings"][i]["geometry"] = geom_decoded
         else:
-            print('No matching geometry to decode')
+            print("No matching geometry to decode")
     return r_json
 
 
@@ -130,11 +144,21 @@ def decode_geom(encoded_polyline):
         lineAddPts(coord[1], coord[0])
     return ma_ligne
 
-def simple_route(coord_origin, coord_dest, coord_intermediate=None,
-                 alternatives=False, steps=False, output="full",
-                 geometry='polyline', overview="simplified",
-                 annotations='true', continue_straight='default',
-                 url_config=RequestConfig, send_as_polyline=True):
+
+def simple_route(
+    coord_origin,
+    coord_dest,
+    coord_intermediate=None,
+    alternatives=False,
+    steps=False,
+    output="full",
+    geometry="polyline",
+    overview="simplified",
+    annotations="true",
+    continue_straight="default",
+    url_config=RequestConfig,
+    send_as_polyline=True,
+):
     """
     Function wrapping OSRM 'viaroute' function and returning the JSON reponse
     with the route_geometry decoded (in WKT or WKB) if needed.
@@ -170,52 +194,86 @@ def simple_route(coord_origin, coord_dest, coord_intermediate=None,
         The result, parsed as a dict, with the geometry decoded in the format
         defined in `geometry`.
     """
-    if geometry.lower() not in ('wkt', 'well-known-text', 'text', 'polyline',
-                                'wkb', 'well-known-binary', 'geojson'):
+    if geometry.lower() not in (
+        "wkt",
+        "well-known-text",
+        "text",
+        "polyline",
+        "wkb",
+        "well-known-binary",
+        "geojson",
+    ):
         raise ValueError("Invalid output format")
     else:
-        geom_request = "geojson" if "geojson" in geometry.lower() \
-            else "polyline"
+        geom_request = "geojson" if "geojson" in geometry.lower() else "polyline"
 
     host = check_host(url_config.host)
 
     if not send_as_polyline:
-        url = [host, "/route/", url_config.version, "/", url_config.profile,
-               "/", "{},{}".format(coord_origin[0], coord_origin[1]), ';']
+        url = [
+            host,
+            "/route/",
+            url_config.version,
+            "/",
+            url_config.profile,
+            "/",
+            "{},{}".format(coord_origin[0], coord_origin[1]),
+            ";",
+        ]
 
         if coord_intermediate:
-            url.append(";".join(
-                [','.join([str(i), str(j)]) for i, j in coord_intermediate]))
+            url.append(
+                ";".join([",".join([str(i), str(j)]) for i, j in coord_intermediate])
+            )
             url.append(";")
-        url.extend([
-            '{},{}'.format(coord_dest[0], coord_dest[1]),
-            "?overview={}&steps={}&alternatives={}&geometries={}&annotations={}&continue_straight={}".format(
-                 overview, str(steps).lower(),
-                 str(alternatives).lower(), geom_request, annotations,
-                 continue_straight)
-            ])
+        url.extend(
+            [
+                "{},{}".format(coord_dest[0], coord_dest[1]),
+                "?overview={}&steps={}&alternatives={}&geometries={}&annotations={}&continue_straight={}".format(
+                    overview,
+                    str(steps).lower(),
+                    str(alternatives).lower(),
+                    geom_request,
+                    annotations,
+                    continue_straight,
+                ),
+            ]
+        )
     else:
         coords = [
-            pt[::-1] for pt in _chain(
-                        [coord_origin],
-                        coord_intermediate if coord_intermediate else [],
-                        [coord_dest])
-            ]
+            pt[::-1]
+            for pt in _chain(
+                [coord_origin],
+                coord_intermediate if coord_intermediate else [],
+                [coord_dest],
+            )
+        ]
         url = [
-            host, "/route/", url_config.version, "/", url_config.profile, "/",
-            "polyline(", quote(polyline_encode(coords)), ")",
+            host,
+            "/route/",
+            url_config.version,
+            "/",
+            url_config.profile,
+            "/",
+            "polyline(",
+            quote(polyline_encode(coords)),
+            ")",
             "?overview={}&steps={}&alternatives={}&geometries={}&annotations={}&continue_straight={}".format(
-                 overview, str(steps).lower(),
-                 str(alternatives).lower(), geom_request, annotations,
-                 continue_straight)
-            ]
+                overview,
+                str(steps).lower(),
+                str(alternatives).lower(),
+                geom_request,
+                annotations,
+                continue_straight,
+            ),
+        ]
     req = Request("".join(url))
     if url_config.auth:
         req.add_header("Authorization", url_config.auth)
     rep = urlopen(req)
-    parsed_json = json.loads(rep.read().decode('utf-8'))
+    parsed_json = json.loads(rep.read().decode("utf-8"))
 
-    if "Ok" in parsed_json['code']:
+    if "Ok" in parsed_json["code"]:
         if geometry in ("polyline", "geojson") and output == "full":
             return parsed_json
         elif geometry in ("polyline", "geojson") and output == "routes":
@@ -228,19 +286,28 @@ def simple_route(coord_origin, coord_dest, coord_intermediate=None,
 
             for route in parsed_json["routes"]:
                 route["geometry"] = func(decode_geom(route["geometry"]))
-                
+
         return parsed_json if output == "full" else parsed_json["routes"]
 
     else:
         raise ValueError(
-            'Error - OSRM status : {} \n Full json reponse : {}'.format(
-                parsed_json['code'], parsed_json))
+            "Error - OSRM status : {} \n Full json reponse : {}".format(
+                parsed_json["code"], parsed_json
+            )
+        )
 
 
-def table(coords_src, coords_dest=None,
-          ids_origin=None, ids_dest=None,
-          output='np', minutes=False, annotations='duration',
-          url_config=RequestConfig, send_as_polyline=True):
+def table(
+    coords_src,
+    coords_dest=None,
+    ids_origin=None,
+    ids_dest=None,
+    output="np",
+    minutes=False,
+    annotations="duration",
+    url_config=RequestConfig,
+    send_as_polyline=True,
+):
     """
     Function wrapping OSRM 'table' function in order to get a matrix of
     time distance as a numpy array or as a DataFrame
@@ -285,96 +352,121 @@ def table(coords_src, coords_dest=None,
                                 a list of snapped origin coordinates,
                                 a list of snapped destination coordinates.
     """
-    if output.lower() in ('numpy', 'array', 'np'):
+    if output.lower() in ("numpy", "array", "np"):
         output = 1
-    elif output.lower() in ('pandas', 'dataframe', 'df'):
+    elif output.lower() in ("pandas", "dataframe", "df"):
         output = 2
     else:
         output = 3
 
     host = check_host(url_config.host)
-    url = ''.join(
-        [host, '/table/', url_config.version, '/', url_config.profile, '/'])
+    url = "".join([host, "/table/", url_config.version, "/", url_config.profile, "/"])
 
     if not send_as_polyline:
         if not coords_dest:
-            url = ''.join([
-                  url,
-                  ';'.join([','.join([str(coord[0]), str(coord[1])])
-                            for coord in coords_src]),
-                  '?annotations={}'.format(annotations)
-                ])
+            url = "".join(
+                [
+                    url,
+                    ";".join(
+                        [
+                            ",".join([str(coord[0]), str(coord[1])])
+                            for coord in coords_src
+                        ]
+                    ),
+                    "?annotations={}".format(annotations),
+                ]
+            )
         else:
             src_end = len(coords_src)
             dest_end = src_end + len(coords_dest)
-            url = ''.join([
-                url,
-                ';'.join([','.join([str(coord[0]), str(coord[1])])
-                          for coord in _chain(coords_src, coords_dest)]),
-                '?sources=',
-                ';'.join([str(i) for i in range(src_end)]),
-                '&destinations=',
-                ';'.join([str(j) for j in range(src_end, dest_end)]),
-                '&annotations={}'.format(annotations)
-                ])
+            url = "".join(
+                [
+                    url,
+                    ";".join(
+                        [
+                            ",".join([str(coord[0]), str(coord[1])])
+                            for coord in _chain(coords_src, coords_dest)
+                        ]
+                    ),
+                    "?sources=",
+                    ";".join([str(i) for i in range(src_end)]),
+                    "&destinations=",
+                    ";".join([str(j) for j in range(src_end, dest_end)]),
+                    "&annotations={}".format(annotations),
+                ]
+            )
     else:
         if not coords_dest:
-            url = ''.join([
-                  url,
-                  "polyline(",
-                  quote(polyline_encode([(c[1], c[0]) for c in coords_src])),
-                  ")",
-                  '?annotations={}'.format(annotations)
-                ])
+            url = "".join(
+                [
+                    url,
+                    "polyline(",
+                    quote(polyline_encode([(c[1], c[0]) for c in coords_src])),
+                    ")",
+                    "?annotations={}".format(annotations),
+                ]
+            )
         else:
             src_end = len(coords_src)
             dest_end = src_end + len(coords_dest)
-            url = ''.join([
-                url,
-                "polyline(",
-                quote(polyline_encode(
-                    [(c[1], c[0]) for c in _chain(coords_src, coords_dest)])),
-                ")",
-                '?sources=',
-                ';'.join([str(i) for i in range(src_end)]),
-                '&destinations=',
-                ';'.join([str(j) for j in range(src_end, dest_end)]),
-                '&annotations={}'.format(annotations)
-                ])
+            url = "".join(
+                [
+                    url,
+                    "polyline(",
+                    quote(
+                        polyline_encode(
+                            [(c[1], c[0]) for c in _chain(coords_src, coords_dest)]
+                        )
+                    ),
+                    ")",
+                    "?sources=",
+                    ";".join([str(i) for i in range(src_end)]),
+                    "&destinations=",
+                    ";".join([str(j) for j in range(src_end, dest_end)]),
+                    "&annotations={}".format(annotations),
+                ]
+            )
 
     req = Request(url)
     if url_config.auth:
         req.add_header("Authorization", url_config.auth)
     rep = urlopen(req)
-    parsed_json = json.loads(rep.read().decode('utf-8'))
+    parsed_json = json.loads(rep.read().decode("utf-8"))
 
     if "code" not in parsed_json or "Ok" not in parsed_json["code"]:
-        raise ValueError('No distance table return by OSRM instance')
+        raise ValueError("No distance table return by OSRM instance")
 
     elif output == 3:
         return parsed_json
 
     else:
-        annoted = np.array(parsed_json['{}s'.format(annotations)], dtype=float)
+        annoted = np.array(parsed_json["{}s".format(annotations)], dtype=float)
 
         new_src_coords = [ft["location"] for ft in parsed_json["sources"]]
-        new_dest_coords = None if not coords_dest \
+        new_dest_coords = (
+            None
+            if not coords_dest
             else [ft["location"] for ft in parsed_json["destinations"]]
+        )
 
-        if minutes and annotations == 'duration':  # Conversion in minutes with 2 decimals:
+        if (
+            minutes and annotations == "duration"
+        ):  # Conversion in minutes with 2 decimals:
             annoted = np.around((annoted / 60), 2)
 
         if output == 2:
             if not ids_origin:
                 ids_origin = [i for i in range(len(coords_src))]
             if not ids_dest:
-                ids_dest = ids_origin if not coords_dest \
+                ids_dest = (
+                    ids_origin
+                    if not coords_dest
                     else [i for i in range(len(coords_dest))]
+                )
 
-            annoted = DataFrame(annoted,
-                                  index=ids_origin,
-                                  columns=ids_dest,
-                                  dtype=float)
+            annoted = DataFrame(
+                annoted, index=ids_origin, columns=ids_dest, dtype=float
+            )
 
         return annoted, new_src_coords, new_dest_coords
 
@@ -398,23 +490,40 @@ def nearest(coord, number=1, url_config=RequestConfig):
         The response from the osrm instance, parsed as a dict
     """
     host = check_host(url_config.host)
-    url = ''.join([
-        host, '/nearest/', url_config.version, '/', url_config.profile, '/',
-         ','.join(map(str, coord)), '?number={}'.format(number)
-    ])
+    url = "".join(
+        [
+            host,
+            "/nearest/",
+            url_config.version,
+            "/",
+            url_config.profile,
+            "/",
+            ",".join(map(str, coord)),
+            "?number={}".format(number),
+        ]
+    )
 
     req = Request(url)
     if url_config.auth:
         req.add_header("Authorization", url_config.auth)
     rep = urlopen(req)
-    parsed_json = json.loads(rep.read().decode('utf-8'))
+    parsed_json = json.loads(rep.read().decode("utf-8"))
     return parsed_json
 
 
-def trip(coords, steps=False, output="full",
-         geometry='polyline', overview="simplified",
-         roundtrip=True, source="any", destination="any",
-         annotations="false", url_config=RequestConfig, send_as_polyline=True):
+def trip(
+    coords,
+    steps=False,
+    output="full",
+    geometry="polyline",
+    overview="simplified",
+    roundtrip=True,
+    source="any",
+    destination="any",
+    annotations="false",
+    url_config=RequestConfig,
+    send_as_polyline=True,
+):
     """
     Function wrapping OSRM 'trip' function and returning the JSON reponse
     with the route_geometry decoded (in WKT or WKB) if needed.
@@ -449,61 +558,79 @@ def trip(coords, steps=False, output="full",
         - if 'WKB' : the json returned by OSRM with the 'route_geometry' converted
                      in WKB format
     """
-    if geometry.lower() not in ('wkt', 'well-known-text', 'text', 'polyline',
-                                'wkb', 'well-known-binary', 'geojson'):
+    if geometry.lower() not in (
+        "wkt",
+        "well-known-text",
+        "text",
+        "polyline",
+        "wkb",
+        "well-known-binary",
+        "geojson",
+    ):
         raise ValueError("Invalid output format")
     else:
-        geom_request = "geojson" if "geojson" in geometry.lower() \
-            else "polyline"
+        geom_request = "geojson" if "geojson" in geometry.lower() else "polyline"
 
     host = check_host(url_config.host)
 
-    coords_request = \
-        "".join(['polyline(',
-                 quote(polyline_encode([(c[1], c[0]) for c in coords])),
-                 ')']) \
-        if send_as_polyline \
-        else ';'.join([','.join([str(c[0]), str(c[1])]) for c in coords])
+    coords_request = (
+        "".join(
+            ["polyline(", quote(polyline_encode([(c[1], c[0]) for c in coords])), ")"]
+        )
+        if send_as_polyline
+        else ";".join([",".join([str(c[0]), str(c[1])]) for c in coords])
+    )
 
-    url = ''.join([
-         host, '/trip/', url_config.version, '/', url_config.profile, '/',
-         coords_request,
-         '?steps={}'.format(str(steps).lower()),
-         '&geometries={}'.format(geom_request),
-         '&overview={}'.format(overview),
-         '&roundtrip={}'.format(str(roundtrip).lower()),
-         '&source={}'.format(source),
-         '&destination={}'.format(destination),
-         '&annotations={}'.format(annotations)
-         ])
+    url = "".join(
+        [
+            host,
+            "/trip/",
+            url_config.version,
+            "/",
+            url_config.profile,
+            "/",
+            coords_request,
+            "?steps={}".format(str(steps).lower()),
+            "&geometries={}".format(geom_request),
+            "&overview={}".format(overview),
+            "&roundtrip={}".format(str(roundtrip).lower()),
+            "&source={}".format(source),
+            "&destination={}".format(destination),
+            "&annotations={}".format(annotations),
+        ]
+    )
 
     req = Request(url)
     if url_config.auth:
         req.add_header("Authorization", url_config.auth)
     rep = urlopen(req)
-    parsed_json = json.loads(rep.read().decode('utf-8'))
+    parsed_json = json.loads(rep.read().decode("utf-8"))
 
-    if "Ok" in parsed_json['code']:
+    if "Ok" in parsed_json["code"]:
         if "only_index" in output:
             return [
                 {"waypoint": i["waypoint_index"], "trip": i["trips_index"]}
-                for i in parsed_json['waypoints']
-                ]
+                for i in parsed_json["waypoints"]
+            ]
         if geometry in ("polyline", "geojson") and output == "full":
             return parsed_json
         elif geometry in ("polyline", "geojson") and output == "trip":
             return parsed_json["trips"]
         else:
-            func = Geometry.ExportToWkb if geometry.lower() == "wkb" \
+            func = (
+                Geometry.ExportToWkb
+                if geometry.lower() == "wkb"
                 else Geometry.ExportToWkt
+            )
 
             for trip_route in parsed_json["trips"]:
-                trip_route["geometry"] = func(decode_geom(
-                                            trip_route["geometry"]))
+                trip_route["geometry"] = func(decode_geom(trip_route["geometry"]))
 
         return parsed_json if output == "full" else parsed_json["routes"]
 
     else:
         raise ValueError(
-            'Error - OSRM status : {} \n Full json reponse : {}'
-            .format(parsed_json['code'], parsed_json))
+            "Error - OSRM status : {} \n Full json reponse : {}".format(
+                parsed_json["code"], parsed_json
+            )
+        )
