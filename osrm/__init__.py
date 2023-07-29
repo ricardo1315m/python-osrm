@@ -51,4 +51,4 @@ RequestConfig = DefaultRequestConfig()
 
 Point = namedtuple("Point", ("longitude", "latitude"))
 
-from .core import _chain, match, nearest, simple_route, table, trip
+from .core import _chain, table
