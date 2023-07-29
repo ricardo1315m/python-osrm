@@ -1,3 +1,2 @@
 polyline
-GDAL
 numpy
